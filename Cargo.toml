@@ -1,0 +1,23 @@
+[package]
+name = "bevy_baseview_plugin"
+version = "0.1.0"
+edition = "2021"
+description = "A baseview window and input backend for Bevy Engine"
+# homepage = "todo"
+# repository = "https://github.com/todo"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy", "baseview", "gui"]
+
+[dependencies]
+baseview = { path = "../baseview" }
+crossbeam = { version = "0.8.*" }
+crossbeam-channel = { version = "0.5.*" }
+lazy_static = "1.4.0"
+raw-window-handle = "0.4.2"
+bevy = { path = "../bevy", version = "0.8.*" }
+log = "0.4.17"
+keyboard-types = { version = "0.6.1", default-features = false }
+
+[dev-dependencies]
+bevy = { path = "../bevy", version = "0.8.*" }
+bevy_baseview_standalone_helper = { path = "bevy_baseview_standalone_helper" }

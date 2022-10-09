@@ -1,0 +1,12 @@
+[package]
+name = "bevy_baseview_standalone_helper"
+version = "0.1.0"
+edition = "2021"
+description = "A test harness for independently creating bevy applications for bevy_baseview_plugin"
+
+[dependencies]
+winit = { version = "0.26.0" }
+bevy = { path = "../../bevy", version = "0.8.*" }
+baseview = { path = "../../baseview" }
+bevy_baseview_plugin = { path = "../" }
+raw-window-handle = "0.4.2"
