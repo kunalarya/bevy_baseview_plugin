@@ -23,4 +23,4 @@ keyboard-types = { version = "0.6.1", default-features = false }
 [dev-dependencies]
 # bevy = { path = "../bevy", version = "0.8.*" }
 bevy = { version = "0.8.*" }
-bevy_baseview_standalone_helper = { path = "bevy_baseview_standalone_helper" }
+bevy_baseview_standalone_helper = { path = "../bevy_baseview_standalone_helper" }

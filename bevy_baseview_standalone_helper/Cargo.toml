@@ -6,7 +6,7 @@ description = "A test harness for independently creating bevy applications for b
 
 [dependencies]
 winit = { version = "0.26.0" }
-bevy = { path = "../../bevy", version = "0.8.*" }
-baseview = { path = "../../baseview" }
-bevy_baseview_plugin = { path = "../" }
+bevy = { version = "0.8.*" }
+baseview = { git = "https://github.com/RustAudio/baseview.git", rev = "eae4033e7d2cc9c31ccaa2794d5d08eedf2f510c" }
+bevy_baseview_plugin = { path = "../bevy_baseview_plugin" }
 raw-window-handle = "0.4.2"
