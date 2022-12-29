@@ -2,13 +2,13 @@ on: [push, pull_request]
 
 name: Continuous integration
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   check:
     name: Check
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./bevy_baseview_plugin
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -16,61 +16,25 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
+          components: rustfmt, clippy
 
-  test:
-    name: Test Suite
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./bevy_baseview_plugin
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
+      - name: rustfmt
+        run: cargo fmt --all -- --check
+        working-directory: ./bevy_baseview_plugin/
 
-  fmt:
-    name: Rustfmt
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./bevy_baseview_plugin
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: rustup component add rustfmt
-      - uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      - name: Install baseview dependencies
+        run: |
+          sudo apt update
+          sudo apt install libx11-xcb-dev libxcb-dri2-0-dev libgl1-mesa-dev libxcb-icccm4-dev libxcursor-dev libasound2-dev libudev-dev
 
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./bevy_baseview_plugin
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - run: rustup component add clippy
-      - uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings
+      - name: cargo check
+        run: cargo check
+        working-directory: ./bevy_baseview_plugin/
+
+      - name: clippy
+        run: cargo clippy
+        working-directory: ./bevy_baseview_plugin/
+
+      - name: cargo test
+        run: cargo test
+        working-directory: ./bevy_baseview_plugin/

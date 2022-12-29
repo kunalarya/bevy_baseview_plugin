@@ -149,6 +149,7 @@ pub fn code_to_scancode(code: Code) -> u32 {
         Code::BrowserRefresh => 0x00B5,
         Code::BrowserSearch => 0x00E1,
         Code::Unidentified => 0x0000,
+        _ => 0x0000,
     }
 }
 
@@ -292,6 +293,7 @@ pub fn code_to_scancode(code: Code) -> u32 {
         Code::Lang2 => 0x1F1,
         Code::Lang1 => 0x1F2,
         Code::Unidentified => 0x000,
+        _ => 0x000,
     }
 }
 #[cfg(target_os = "macos")]
