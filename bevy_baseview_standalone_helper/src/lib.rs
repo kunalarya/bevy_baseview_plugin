@@ -14,17 +14,18 @@ use winit::{
 
 use bevy_baseview_plugin::{AppProxy, ParentWin};
 
-const PHY_WIDTH: u32 = 500;
-const PHY_HEIGHT: u32 = 400;
+// Window size (logical).
+const WINDOW_WIDTH: f64 = 500.0;
+const WINDOW_HEIGHT: f64 = 400.0;
 
-struct AppWrapper<F: Fn(ParentWin, u32, u32) -> AppProxy> {
+struct AppWrapper<F: Fn(ParentWin, f64, f64) -> AppProxy> {
     initialized: AtomicBool,
     parent_win: ParentWin,
     create_app: F,
     app: Option<AppProxy>,
 }
 
-impl<F: Fn(ParentWin, u32, u32) -> AppProxy> AppWrapper<F> {
+impl<F: Fn(ParentWin, f64, f64) -> AppProxy> AppWrapper<F> {
     pub fn new(raw_window_handle: RawWindowHandle, create_app: F) -> Self {
         let parent_win = ParentWin::from(raw_window_handle);
         let initialized = AtomicBool::new(false);
@@ -49,8 +50,8 @@ impl<F: Fn(ParentWin, u32, u32) -> AppProxy> AppWrapper<F> {
         {
             self.app = Some((self.create_app)(
                 self.parent_win.clone(),
-                PHY_WIDTH,
-                PHY_HEIGHT,
+                WINDOW_WIDTH,
+                WINDOW_HEIGHT,
             ));
         }
 
@@ -64,10 +65,10 @@ impl<F: Fn(ParentWin, u32, u32) -> AppProxy> AppWrapper<F> {
     }
 }
 
-pub fn run_app<F: Fn(ParentWin, u32, u32) -> AppProxy + 'static>(create_app: F) {
+pub fn run_app<F: Fn(ParentWin, f64, f64) -> AppProxy + 'static>(create_app: F) {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
-        .with_inner_size(winit::dpi::PhysicalSize::new(PHY_WIDTH, PHY_HEIGHT))
+        .with_inner_size(winit::dpi::PhysicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT))
         .build(&event_loop)
         .unwrap();
 

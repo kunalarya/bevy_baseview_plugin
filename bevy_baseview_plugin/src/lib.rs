@@ -35,12 +35,37 @@ use baseview_windows::BaseviewWindows;
 pub use default_plugins::DefaultBaseviewPlugins;
 
 /// Container for user-provided information about the parent window.
-#[derive(Clone, Debug)]
 struct BaseviewWindowInfo {
     /// Physical size of parent window.
-    phy_size: baseview::PhySize,
-    // TODO: Provide window scaling.
+    //phy_size: baseview::PhySize,
+    //scale_factor: baseview::WindowScalePolicy,
     parent_win: ParentWin,
+    window_open_options: baseview::WindowOpenOptions,
+}
+
+impl std::fmt::Debug for BaseviewWindowInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Note, we do not support glContext for baseview.
+        let window_open_options_str = format!(
+            "WindowOpenOptions(title={:?}, size={:?}, scale={:?})",
+            self.window_open_options.title,
+            self.window_open_options.size,
+            self.window_open_options.scale
+        );
+        f.debug_struct("BaseviewWindowInfo")
+            .field("parent_win", &self.parent_win)
+            .field("window_open_options", &window_open_options_str)
+            .finish()
+    }
+}
+
+impl Clone for BaseviewWindowInfo {
+    fn clone(&self) -> Self {
+        Self {
+            parent_win: self.parent_win.clone(),
+            window_open_options: clone_window_options(&self.window_open_options),
+        }
+    }
 }
 
 unsafe impl Sync for BaseviewWindowInfo {}
@@ -65,21 +90,32 @@ impl Drop for AppProxy {
  */
 pub fn attach_to<P: Into<ParentWin>>(
     app: &mut App,
-    phy_width: u32,
-    phy_height: u32,
+    window_open_options: &baseview::WindowOpenOptions,
     parent: P,
 ) -> AppProxy {
-    let phy_size = baseview::PhySize::new(phy_width, phy_height);
     let parent_win = parent.into();
+    let window_open_options = clone_window_options(window_open_options);
 
     let baseview_window_info = BaseviewWindowInfo {
-        phy_size,
         parent_win,
+        window_open_options,
     };
-
     app.insert_non_send_resource(baseview_window_info);
 
     AppProxy
+}
+
+// h/t to iced_baseview
+fn clone_window_options(window: &baseview::WindowOpenOptions) -> baseview::WindowOpenOptions {
+    baseview::WindowOpenOptions {
+        title: window.title.clone(),
+        #[cfg(feature = "baseviewgl")]
+        gl_config: window
+            .gl_config
+            .as_ref()
+            .map(|config| baseview::gl::GlConfig { ..*config }),
+        ..*window
+    }
 }
 
 #[derive(Default)]
@@ -91,12 +127,6 @@ struct GuiThread;
 
 impl Plugin for BaseviewPlugin {
     fn build(&self, app: &mut App) {
-        let window_open_options = baseview::WindowOpenOptions {
-            title: "baseview".into(),
-            size: baseview::Size::new(512.0, 512.0),
-            scale: baseview::WindowScalePolicy::SystemScaleFactor,
-        };
-
         app.init_non_send_resource::<BaseviewWindows>()
             .set_runner(baseview_runner)
             .add_system_to_stage(CoreStage::PostUpdate, change_window.label(ModifiesWindows));
@@ -107,7 +137,6 @@ impl Plugin for BaseviewPlugin {
         app.insert_resource(create_window_reader);
         #[cfg(not(target_os = "android"))]
         handle_create_window_events(&mut app.world);
-        app.insert_non_send_resource(window_open_options);
         app.add_event::<CloseAppRequest>();
     }
 }
@@ -153,7 +182,7 @@ fn baseview_runner(app: App) {
 }
 
 fn drop_app(_gui: &GuiThread) {
-    log::info!("!!!!!! drop_app");
+    log::trace!("Dropping App");
     if APP_SET
         .compare_exchange(true, false, Ordering::Acquire, Ordering::Relaxed)
         .is_ok()
@@ -353,6 +382,9 @@ impl BaseviewWindow {
                     baseview::WindowEvent::Resized(window_info) => {
                         // First adjust scale, if needed.
                         let scale_factor = window_info.scale();
+                        //info!("WARNING WARNING WARNING WARNING WARNING DEBUGGING");
+                        //let scale_factor = 2.0;
+
                         if scale_factor != self.last_scale_factor {
                             let mut backend_scale_factor_change_events =
                                 world.resource_mut::<Events<WindowBackendScaleFactorChanged>>();
@@ -362,6 +394,7 @@ impl BaseviewWindow {
                                     scale_factor,
                                 },
                             );
+                            info!("DEBUG: window scale factor changed to {scale_factor}");
 
                             let mut scale_factor_change_events =
                                 world.resource_mut::<Events<WindowScaleFactorChanged>>();
@@ -372,10 +405,19 @@ impl BaseviewWindow {
                             });
 
                             self.last_scale_factor = window_info.scale();
+                            info!(
+                                "DEBUG: updating last_scale_factor to window_info.scale() -> {}",
+                                &self.last_scale_factor
+                            );
                             window.update_scale_factor_from_backend(self.last_scale_factor);
                         }
 
                         window.update_actual_size_from_backend(
+                            window_info.physical_size().width,
+                            window_info.physical_size().height,
+                        );
+                        info!(
+                            "DEBUG: updating to actual size of {}, {}",
                             window_info.physical_size().width,
                             window_info.physical_size().height,
                         );
@@ -385,6 +427,11 @@ impl BaseviewWindow {
                             width: window_info.logical_size().width as f32,
                             height: window_info.logical_size().height as f32,
                         });
+                        info!(
+                            "DEBUG: sending window resize with logical size {}, {}",
+                            window_info.logical_size().width as f32,
+                            window_info.logical_size().height as f32,
+                        );
                     }
                     baseview::WindowEvent::Focused => {
                         window.update_focused_status_from_backend(true);
@@ -519,7 +566,7 @@ fn handle_create_window_events(
         let window = baseview_windows.create_window(
             create_window_event.id,
             &create_window_event.descriptor,
-            &baseview_window_info,
+            baseview_window_info.clone(),
         );
         // This event is already sent on windows, x11, and xwayland.
         // TODO: we aren't yet sure about native wayland, so we might be able to exclude it,

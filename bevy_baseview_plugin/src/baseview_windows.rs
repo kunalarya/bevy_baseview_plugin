@@ -21,23 +21,27 @@ impl BaseviewWindows {
         &mut self,
         window_id: WindowId,
         window_descriptor: &WindowDescriptor,
-        baseview_window_info: &BaseviewWindowInfo,
+        baseview_window_info: BaseviewWindowInfo,
     ) -> Window {
-        // TODO: Sort out scale factor.
-        let scale_factor = 1.0;
-        let window_info =
-            baseview::WindowInfo::from_physical_size(baseview_window_info.phy_size, scale_factor);
-
-        let window_open_options = baseview::WindowOpenOptions {
-            title: "baseview".into(),
-            size: window_info.logical_size(),
-            scale: baseview::WindowScalePolicy::SystemScaleFactor,
-        };
-
-        let parent_win = &baseview_window_info.parent_win;
+        let BaseviewWindowInfo {
+            window_open_options,
+            parent_win,
+        } = baseview_window_info;
 
         let baseview_window = BaseviewWindow::new();
         let baseview_window_id = baseview_window.id();
+
+        let scale_factor = match window_open_options.scale {
+            baseview::WindowScalePolicy::SystemScaleFactor => 1.0,
+            baseview::WindowScalePolicy::ScaleFactor(scale) => scale,
+        };
+
+        let window_info =
+            baseview::WindowInfo::from_logical_size(window_open_options.size, scale_factor);
+        // TODO: Should probably add utilities to baseview to expose easier
+        // scaling.
+        let phy_size = window_open_options.size.to_physical(&window_info);
+
         baseview::Window::open_parented(&parent_win, window_open_options, |_| baseview_window);
         self.baseview_to_window_id
             .insert(baseview_window_id, window_id);
@@ -47,8 +51,8 @@ impl BaseviewWindows {
         Window::new(
             window_id,
             window_descriptor,
-            baseview_window_info.phy_size.width,
-            baseview_window_info.phy_size.height,
+            phy_size.width,
+            phy_size.height,
             scale_factor,
             None, // position,
             parent_win.raw_window_handle(),
