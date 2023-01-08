@@ -9,10 +9,15 @@ fn main() {
     bevy_baseview_standalone_helper::run_app(create_app);
 }
 
-fn create_app(parent_win: ParentWin, phy_width: u32, phy_height: u32) -> AppProxy {
+fn create_app(parent_win: ParentWin, width: f64, height: f64) -> AppProxy {
     // Initailize the app.
     let mut app = App::new();
-    let proxy = attach_to(&mut app, phy_width, phy_height, parent_win);
+    let window_open_options = baseview::WindowOpenOptions {
+        title: "Shapes example".to_string(),
+        size: baseview::Size::new(width, height),
+        scale: baseview::WindowScalePolicy::SystemScaleFactor,
+    };
+    let proxy = attach_to(&mut app, &window_open_options, parent_win);
     app.add_plugins(DefaultBaseviewPlugins)
         .add_plugin(bevy::log::LogPlugin::default())
         .add_startup_system(setup)
