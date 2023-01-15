@@ -6,8 +6,6 @@ use crate::{BaseviewWindow, BaseviewWindowInfo};
 
 #[derive(Debug, Default)]
 pub struct BaseviewWindows {
-    pub windows: HashMap<WindowId, BaseviewWindow>,
-
     pub window_id_to_baseview: HashMap<WindowId, u64>,
     pub baseview_to_window_id: HashMap<u64, WindowId>,
     // Some window functions, such as `set_window_icon` can only be used from the main thread. If
@@ -17,7 +15,7 @@ pub struct BaseviewWindows {
 }
 
 impl BaseviewWindows {
-    pub fn create_window(
+    pub(crate) fn create_window(
         &mut self,
         window_id: WindowId,
         window_descriptor: &WindowDescriptor,
@@ -57,10 +55,6 @@ impl BaseviewWindows {
             None, // position,
             parent_win.raw_window_handle(),
         )
-    }
-
-    pub fn remove_window(&mut self, id: WindowId) -> Option<BaseviewWindow> {
-        self.windows.remove(&id)
     }
 
     pub fn get_window_id(&self, id: u64) -> Option<WindowId> {

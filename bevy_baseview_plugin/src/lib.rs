@@ -23,7 +23,6 @@ use bevy::input::{
     mouse::{MouseButtonInput, MouseScrollUnit, MouseWheel},
 };
 use bevy::math::DVec2;
-use bevy::utils::tracing::{info, warn};
 use bevy::window::{
     CreateWindow, CursorEntered, CursorLeft, CursorMoved, ModifiesWindows,
     WindowBackendScaleFactorChanged, WindowCreated, WindowFocused, WindowResized,
@@ -81,7 +80,8 @@ pub struct AppProxy;
 
 impl Drop for AppProxy {
     fn drop(&mut self) {
-        APP_SHUTDOWN.store(true, Ordering::Release);
+        // TODO: GUI Thread is definitely not guaranteed; need to evaluate.
+        drop_app(&GuiThread);
     }
 }
 
@@ -155,10 +155,6 @@ lazy_static! {
     static ref APP_SET: AtomicBool = AtomicBool::new(false);
 }
 
-lazy_static! {
-    static ref APP_SHUTDOWN: AtomicBool = AtomicBool::new(false);
-}
-
 fn baseview_runner(app: App) {
     // We have to store the App somewhere to prevent it from getting
     // dropped, so we store it in a thread-local, since App is not Send.
@@ -192,7 +188,6 @@ fn drop_app(_gui: &GuiThread) {
         });
     }
     APP_SET.store(false, Ordering::Release);
-    APP_SHUTDOWN.store(false, Ordering::Release);
 }
 
 lazy_static! {
@@ -249,10 +244,12 @@ impl BaseviewWindow {
             if let Some(window_id) = baseview_windows.get_window_id(baseview_window_id) {
                 Some(window_id)
             } else {
-                warn!(
+                // TODO: Clean up logging.
+                log::warn!(
                     "Skipped event for unknown baseview Window Id {:?}",
                     baseview_window_id
                 );
+
                 None
             }
         }
@@ -280,15 +277,14 @@ impl BaseviewWindow {
                             window
                         } else {
                             // If we're here, this window was previously opened
-                            info!("Skipped event for closed window: {:?}", window_id);
+                            log::info!("Skipped event for closed window: {:?}", window_id);
                             return status;
                         };
-                        let physical_position = DVec2::new(position.x, position.y);
-                        window
-                            .update_cursor_physical_position_from_backend(Some(physical_position));
+                        let position = DVec2::new(position.x, position.y);
+                        window.update_cursor_physical_position_from_backend(Some(position));
                         cursor_moved_events.send(CursorMoved {
                             id: window_id,
-                            position: (physical_position / window.scale_factor()).as_vec2(),
+                            position: position.as_vec2(),
                         });
                     }
                     baseview::MouseEvent::CursorEntered => {
@@ -375,15 +371,13 @@ impl BaseviewWindow {
                     window
                 } else {
                     // If we're here, this window was previously opened
-                    info!("Skipped event for closed window: {:?}", window_id);
+                    log::info!("Skipped event for closed window: {:?}", window_id);
                     return status;
                 };
                 match window_event {
                     baseview::WindowEvent::Resized(window_info) => {
                         // First adjust scale, if needed.
                         let scale_factor = window_info.scale();
-                        //info!("WARNING WARNING WARNING WARNING WARNING DEBUGGING");
-                        //let scale_factor = 2.0;
 
                         if scale_factor != self.last_scale_factor {
                             let mut backend_scale_factor_change_events =
@@ -394,7 +388,6 @@ impl BaseviewWindow {
                                     scale_factor,
                                 },
                             );
-                            info!("DEBUG: window scale factor changed to {scale_factor}");
 
                             let mut scale_factor_change_events =
                                 world.resource_mut::<Events<WindowScaleFactorChanged>>();
@@ -405,19 +398,10 @@ impl BaseviewWindow {
                             });
 
                             self.last_scale_factor = window_info.scale();
-                            info!(
-                                "DEBUG: updating last_scale_factor to window_info.scale() -> {}",
-                                &self.last_scale_factor
-                            );
                             window.update_scale_factor_from_backend(self.last_scale_factor);
                         }
 
                         window.update_actual_size_from_backend(
-                            window_info.physical_size().width,
-                            window_info.physical_size().height,
-                        );
-                        info!(
-                            "DEBUG: updating to actual size of {}, {}",
                             window_info.physical_size().width,
                             window_info.physical_size().height,
                         );
@@ -427,11 +411,6 @@ impl BaseviewWindow {
                             width: window_info.logical_size().width as f32,
                             height: window_info.logical_size().height as f32,
                         });
-                        info!(
-                            "DEBUG: sending window resize with logical size {}, {}",
-                            window_info.logical_size().width as f32,
-                            window_info.logical_size().height as f32,
-                        );
                     }
                     baseview::WindowEvent::Focused => {
                         window.update_focused_status_from_backend(true);
@@ -467,7 +446,7 @@ impl Default for BaseviewWindow {
 
 impl Drop for BaseviewWindow {
     fn drop(&mut self) {
-        info!("BaseviewWindow: drop");
+        log::info!("BaseviewWindow: drop");
     }
 }
 
@@ -521,12 +500,6 @@ impl baseview::WindowHandler for BaseviewWindow {
         if status.shutdown {
             drop_app(&gui_thread);
         }
-        if APP_SHUTDOWN
-            .compare_exchange(true, false, Ordering::Acquire, Ordering::Relaxed)
-            .is_ok()
-        {
-            drop_app(&gui_thread);
-        }
 
         status.return_status
     }
@@ -541,7 +514,6 @@ fn handle_create_window_events(
     world: &mut World,
     //create_window_event_reader: &mut ManualEventReader<CreateWindow>,
 ) {
-    //log::info!("baseview: handle_create_window_events: START");
     let world = world.cell();
     let mut baseview_windows = world.non_send_resource_mut::<BaseviewWindows>();
     let mut windows = world.resource_mut::<Windows>();
@@ -552,7 +524,6 @@ fn handle_create_window_events(
     let mut create_window_event_reader = world
         .get_resource_mut::<BaseviewCreateWindowReader>()
         .expect("missing create window event reader");
-    //log::info!("handle_create_window_events: starting to read...");
     for create_window_event in create_window_event_reader.0.iter(&create_window_events) {
         log::info!(
             "bevy_baseview_plugin: handle_create_window_events: got event: {:?}",
